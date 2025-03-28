@@ -52,7 +52,7 @@ def ask_ai():
                 "Content-Type": "application/json"
             },
             json={
-                "model": "mixtral-8x7b",
+                "model": "llama-3.3-70b-versatile",
                 "messages": [
                     {
                         "role": "system",
