@@ -5,6 +5,7 @@ import time
 import hashlib
 import hmac
 import traceback
+import sys
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -34,12 +35,16 @@ def verify_slack_request(req):
 @app.route("/askai", methods=["POST"])
 def ask_ai():
     print("🚀 Received Slack request to /askai")
+    sys.stdout.flush()
 
     user_question = request.form.get("text")
     print(f"📩 User question: {user_question}")
+    sys.stdout.flush()
 
     try:
         print("🌐 Sending request to Groq API...")
+        sys.stdout.flush()
+
         response = requests.post(
             "https://api.groq.com/openai/v1/chat/completions",
             headers={
@@ -63,15 +68,19 @@ def ask_ai():
         )
 
         print("📦 Raw Response Code:", response.status_code)
+        sys.stdout.flush()
         print("📦 Raw Response Text:", response.text)
+        sys.stdout.flush()
 
         try:
             data = response.json()
         except Exception as json_error:
             print("❌ Failed to parse JSON:", response.text)
+            sys.stdout.flush()
             raise json_error
 
         print("✅ Groq API response (parsed):", data)
+        sys.stdout.flush()
 
         if "choices" not in data:
             raise ValueError("Groq response missing 'choices' key")
@@ -79,6 +88,7 @@ def ask_ai():
         answer = data["choices"][0]["message"]["content"]
 
         print("✅ Answer from Groq:", answer)
+        sys.stdout.flush()
 
         return jsonify({
             "response_type": "in_channel",
@@ -88,6 +98,7 @@ def ask_ai():
     except Exception as e:
         error_trace = traceback.format_exc()
         print("🛑 Exception caught:", error_trace)
+        sys.stdout.flush()
         return jsonify({
             "response_type": "ephemeral",
             "text": f"⚠️ Collabor·AI·te ran into an error: `{str(e)}`"
