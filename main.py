@@ -52,7 +52,7 @@ def ask_ai():
                 "Content-Type": "application/json"
             },
             json={
-                "model": "mixtral-8x7b-32768",
+                "model": "mixtral-8x7b",
                 "messages": [
                     {
                         "role": "system",
