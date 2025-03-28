@@ -60,6 +60,11 @@ def ask_ai():
         )
 
         data = response.json()
+        print("Groq API response:", data)  # 🐛 DEBUG LOGGING
+
+        if "choices" not in data:
+            raise ValueError("Groq response missing 'choices' key")
+
         answer = data["choices"][0]["message"]["content"]
 
         return jsonify({
