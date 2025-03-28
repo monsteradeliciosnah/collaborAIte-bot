@@ -1,11 +1,9 @@
 from flask import Flask, request, jsonify
 import os
 import requests
-import time
 import hashlib
 import hmac
-import traceback
-import sys
+import time
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -17,6 +15,7 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 app = Flask(__name__)
 
+# Slack signature verification
 def verify_slack_request(req):
     timestamp = req.headers.get('X-Slack-Request-Timestamp')
     if abs(time.time() - int(timestamp)) > 60 * 5:
@@ -32,19 +31,16 @@ def verify_slack_request(req):
     slack_signature = req.headers.get('X-Slack-Signature')
     return hmac.compare_digest(my_signature, slack_signature)
 
+# Slack AI command handler
 @app.route("/askai", methods=["POST"])
 def ask_ai():
-    print("🚀 Received Slack request to /askai")
-    sys.stdout.flush()
-
     user_question = request.form.get("text")
+    user_id = request.form.get("user_id")
+
     print(f"📩 User question: {user_question}")
-    sys.stdout.flush()
+    print("🌐 Sending request to Groq API...")
 
     try:
-        print("🌐 Sending request to Groq API...")
-        sys.stdout.flush()
-
         response = requests.post(
             "https://api.groq.com/openai/v1/chat/completions",
             headers={
@@ -54,55 +50,70 @@ def ask_ai():
             json={
                 "model": "llama-3.3-70b-versatile",
                 "messages": [
-                    {
-                        "role": "system",
-                        "content": "You are Collabor·AI·te, a friendly, smart Slack bot that answers AI/ML questions clearly and supportively."
-                    },
-                    {
-                        "role": "user",
-                        "content": user_question
-                    }
+                    {"role": "system", "content": "You are Collabor·AI·te, a friendly, smart AI Slack assistant that answers AI/ML questions clearly and with encouragement."},
+                    {"role": "user", "content": user_question}
                 ],
                 "temperature": 0.7
             }
         )
 
-        print("📦 Raw Response Code:", response.status_code)
-        sys.stdout.flush()
-        print("📦 Raw Response Text:", response.text)
-        sys.stdout.flush()
+        print(f"📦 Raw Response Code: {response.status_code}")
+        print(f"📦 Raw Response Text: {response.text}")
 
-        try:
-            data = response.json()
-        except Exception as json_error:
-            print("❌ Failed to parse JSON:", response.text)
-            sys.stdout.flush()
-            raise json_error
-
-        print("✅ Groq API response (parsed):", data)
-        sys.stdout.flush()
-
+        data = response.json()
         if "choices" not in data:
             raise ValueError("Groq response missing 'choices' key")
 
         answer = data["choices"][0]["message"]["content"]
-
-        print("✅ Answer from Groq:", answer)
-        sys.stdout.flush()
-
         return jsonify({
             "response_type": "in_channel",
             "text": f"🤖 *Collabor·AI·te says:*\n{answer}"
         })
 
     except Exception as e:
-        error_trace = traceback.format_exc()
-        print("🛑 Exception caught:", error_trace)
-        sys.stdout.flush()
+        print(f"🛑 Exception caught: {e}")
         return jsonify({
             "response_type": "ephemeral",
-            "text": f"⚠️ Collabor·AI·te ran into an error: `{str(e)}`"
+            "text": f"⚠️ Collabor·AI·te ran into an error: {e}"
         })
 
+# Welcome new users
+@app.route("/welcome", methods=["POST"])
+def welcome_new_user():
+    data = request.json
+    event = data.get("event", {})
+
+    user_id = event.get("user", {}).get("id")
+    if not user_id:
+        return "No user ID found", 400
+
+    headers = {
+        "Authorization": f"Bearer {SLACK_BOT_TOKEN}",
+        "Content-Type": "application/json"
+    }
+
+    # DM to user
+    dm_payload = {
+        "channel": user_id,
+        "text": (
+            f"👋 Welcome to [collabor·AI·te], <@{user_id}>!\n\n"
+            "We’re so happy you joined 💜\n\n"
+            "🚀 Here's your onboarding form: https://forms.gle/MD2rGNS3Mq83oREh7\n"
+            "💡 Ask AI/ML questions using the `/askai` command\n"
+            "🔥 And don't forget to drop your AI-interest heat level!"
+        )
+    }
+    requests.post("https://slack.com/api/chat.postMessage", headers=headers, json=dm_payload)
+
+    # Public welcome in general
+    general_payload = {
+        "channel": "#general",
+        "text": f"🎉 Let’s welcome <@{user_id}> to [collabor·AI·te]! Say hi! 👋"
+    }
+    requests.post("https://slack.com/api/chat.postMessage", headers=headers, json=general_payload)
+
+    return "OK", 200
+
+# Flask startup
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=3000)
