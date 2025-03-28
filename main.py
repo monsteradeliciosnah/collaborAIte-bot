@@ -4,6 +4,7 @@ import requests
 import hashlib
 import hmac
 import time
+import json
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -14,8 +15,9 @@ SLACK_SIGNING_SECRET = os.getenv("SLACK_SIGNING_SECRET")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 app = Flask(__name__)
+PROJECTS_FILE = "projects.json"
 
-# Slack signature verification
+# --- Slack verification ---
 def verify_slack_request(req):
     timestamp = req.headers.get('X-Slack-Request-Timestamp')
     if abs(time.time() - int(timestamp)) > 60 * 5:
@@ -31,14 +33,11 @@ def verify_slack_request(req):
     slack_signature = req.headers.get('X-Slack-Signature')
     return hmac.compare_digest(my_signature, slack_signature)
 
-# Slack AI command handler
+# --- Groq AI Q&A ---
 @app.route("/askai", methods=["POST"])
 def ask_ai():
     user_question = request.form.get("text")
     user_id = request.form.get("user_id")
-
-    print(f"📩 User question: {user_question}")
-    print("🌐 Sending request to Groq API...")
 
     try:
         response = requests.post(
@@ -57,9 +56,6 @@ def ask_ai():
             }
         )
 
-        print(f"📦 Raw Response Code: {response.status_code}")
-        print(f"📦 Raw Response Text: {response.text}")
-
         data = response.json()
         if "choices" not in data:
             raise ValueError("Groq response missing 'choices' key")
@@ -71,13 +67,81 @@ def ask_ai():
         })
 
     except Exception as e:
-        print(f"🛑 Exception caught: {e}")
         return jsonify({
             "response_type": "ephemeral",
             "text": f"⚠️ Collabor·AI·te ran into an error: {e}"
         })
 
-# Welcome new users
+# --- Project Tracker ---
+def load_projects():
+    if not os.path.exists(PROJECTS_FILE):
+        return {}
+    with open(PROJECTS_FILE, "r") as f:
+        return json.load(f)
+
+def save_projects(data):
+    with open(PROJECTS_FILE, "w") as f:
+        json.dump(data, f, indent=2)
+
+@app.route("/project", methods=["POST"])
+def project_command():
+    user_id = request.form.get("user_id")
+    text = request.form.get("text").strip()
+    command_parts = text.split(" ", 1)
+
+    if len(command_parts) < 2:
+        return jsonify({
+            "response_type": "ephemeral",
+            "text": "⚠️ Usage: `/project add|update|list [your text]`"
+        })
+
+    action, content = command_parts
+    projects = load_projects()
+
+    if action == "add":
+        projects[user_id] = {
+            "description": content,
+            "updates": []
+        }
+        save_projects(projects)
+        return jsonify({
+            "response_type": "in_channel",
+            "text": f"📌 <@{user_id}> just added a new project:\n> *{content}*"
+        })
+
+    elif action == "update":
+        if user_id not in projects:
+            return jsonify({
+                "response_type": "ephemeral",
+                "text": "🚫 You don’t have a project yet. Use `/project add` first!"
+            })
+        projects[user_id]["updates"].append(content)
+        save_projects(projects)
+        return jsonify({
+            "response_type": "in_channel",
+            "text": f"🔄 <@{user_id}> posted a project update:\n> {content}"
+        })
+
+    elif action == "list":
+        messages = []
+        for uid, entry in projects.items():
+            msg = f"👤 <@{uid}>\n• *Project*: {entry['description']}"
+            if entry["updates"]:
+                updates = "\n    - " + "\n    - ".join(entry["updates"])
+                msg += f"\n• Updates:{updates}"
+            messages.append(msg)
+        return jsonify({
+            "response_type": "in_channel",
+            "text": "🗂️ *Collabor·AI·te Project Tracker*\n\n" + "\n\n".join(messages) if messages else "No projects yet!"
+        })
+
+    else:
+        return jsonify({
+            "response_type": "ephemeral",
+            "text": "❓ Unknown command. Use `add`, `update`, or `list`."
+        })
+
+# --- New User Welcome ---
 @app.route("/welcome", methods=["POST"])
 def welcome_new_user():
     data = request.json
@@ -105,7 +169,7 @@ def welcome_new_user():
     }
     requests.post("https://slack.com/api/chat.postMessage", headers=headers, json=dm_payload)
 
-    # Public welcome in general
+    # Public welcome
     general_payload = {
         "channel": "#general",
         "text": f"🎉 Let’s welcome <@{user_id}> to [collabor·AI·te]! Say hi! 👋"
@@ -114,6 +178,6 @@ def welcome_new_user():
 
     return "OK", 200
 
-# Flask startup
+# --- Start the Flask server ---
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=3000)
