@@ -16,7 +16,6 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 app = Flask(__name__)
 
-# Optional: Slack verification
 def verify_slack_request(req):
     timestamp = req.headers.get('X-Slack-Request-Timestamp')
     if abs(time.time() - int(timestamp)) > 60 * 5:
@@ -59,8 +58,13 @@ def ask_ai():
             }
         )
 
-        data = response.json()
-        print("Groq API response:", data)  # 🐛 DEBUG
+        try:
+            data = response.json()
+        except Exception as json_error:
+            print("❌ Failed to parse JSON:", response.text)
+            raise json_error
+
+        print("✅ Groq API response:", data)
 
         if "choices" not in data:
             raise ValueError("Groq response missing 'choices' key")
@@ -74,8 +78,8 @@ def ask_ai():
 
     except Exception as e:
         error_trace = traceback.format_exc()
-        print("Groq API Error:", error_trace)
-        print("Full Response (if any):", response.text)  # NEW: Full API reply
+        print("⚠️ Exception Trace:", error_trace)
+        print("🔍 Raw Response Text:", response.text if 'response' in locals() else 'No response object')
         return jsonify({
             "response_type": "ephemeral",
             "text": f"⚠️ Collabor·AI·te ran into an error: `{str(e)}`"
