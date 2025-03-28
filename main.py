@@ -3,6 +3,7 @@ import os
 import openai
 import hashlib
 import hmac
+import time
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -10,6 +11,7 @@ load_dotenv()
 
 SLACK_BOT_TOKEN = os.getenv("SLACK_BOT_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+SLACK_SIGNING_SECRET = os.getenv("SLACK_SIGNING_SECRET")
 
 openai.api_key = OPENAI_API_KEY
 
@@ -27,26 +29,16 @@ def verify_slack_request(req):
         hashlib.sha256
     ).hexdigest()
 
-    git init
-    git remote add origin https://github.com/monsteradeliciosnah/collaborAIte-bot.git
-    git add .
-    git commit -m "Initial commit for Collabor·AI·te bot"
-    git push -u origin master
-        
     slack_signature = req.headers.get('X-Slack-Signature')
     return hmac.compare_digest(my_signature, slack_signature)
 
 @app.route("/askai", methods=["POST"])
 def ask_ai():
-    # Optional: Uncomment this to verify requests (recommended for production)
-    # if not verify_slack_request(request):
-    #     return "Unauthorized", 403
-
     user_question = request.form.get("text")
 
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",  # Use "gpt-4" if you have access
+            model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "You are Collabor·AI·te, a friendly, smart AI Slack assistant that answers AI/ML questions clearly and with encouragement."},
                 {"role": "user", "content": user_question}
@@ -66,6 +58,3 @@ def ask_ai():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=3000)
-
-              SLACK_BOT_TOKEN = os.getenv("SLACK_BOT_TOKEN")
-              OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
