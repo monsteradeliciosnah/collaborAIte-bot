@@ -33,9 +33,13 @@ def verify_slack_request(req):
 
 @app.route("/askai", methods=["POST"])
 def ask_ai():
+    print("🚀 Received Slack request to /askai")
+
     user_question = request.form.get("text")
+    print(f"📩 User question: {user_question}")
 
     try:
+        print("🌐 Sending request to Groq API...")
         response = requests.post(
             "https://api.groq.com/openai/v1/chat/completions",
             headers={
@@ -58,18 +62,23 @@ def ask_ai():
             }
         )
 
+        print("📦 Raw Response Code:", response.status_code)
+        print("📦 Raw Response Text:", response.text)
+
         try:
             data = response.json()
         except Exception as json_error:
             print("❌ Failed to parse JSON:", response.text)
             raise json_error
 
-        print("✅ Groq API response:", data)
+        print("✅ Groq API response (parsed):", data)
 
         if "choices" not in data:
             raise ValueError("Groq response missing 'choices' key")
 
         answer = data["choices"][0]["message"]["content"]
+
+        print("✅ Answer from Groq:", answer)
 
         return jsonify({
             "response_type": "in_channel",
@@ -78,8 +87,7 @@ def ask_ai():
 
     except Exception as e:
         error_trace = traceback.format_exc()
-        print("⚠️ Exception Trace:", error_trace)
-        print("🔍 Raw Response Text:", response.text if 'response' in locals() else 'No response object')
+        print("🛑 Exception caught:", error_trace)
         return jsonify({
             "response_type": "ephemeral",
             "text": f"⚠️ Collabor·AI·te ran into an error: `{str(e)}`"
