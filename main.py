@@ -7,7 +7,7 @@ import hmac
 import traceback
 from dotenv import load_dotenv
 
-# Load env variables
+# Load environment variables
 load_dotenv()
 
 SLACK_BOT_TOKEN = os.getenv("SLACK_BOT_TOKEN")
@@ -60,7 +60,7 @@ def ask_ai():
         )
 
         data = response.json()
-        print("Groq API response:", data)  # 🐛 DEBUG LOGGING
+        print("Groq API response:", data)  # 🐛 DEBUG
 
         if "choices" not in data:
             raise ValueError("Groq response missing 'choices' key")
@@ -75,6 +75,7 @@ def ask_ai():
     except Exception as e:
         error_trace = traceback.format_exc()
         print("Groq API Error:", error_trace)
+        print("Full Response (if any):", response.text)  # NEW: Full API reply
         return jsonify({
             "response_type": "ephemeral",
             "text": f"⚠️ Collabor·AI·te ran into an error: `{str(e)}`"
