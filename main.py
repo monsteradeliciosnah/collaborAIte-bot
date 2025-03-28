@@ -1,11 +1,11 @@
-        from flask import Flask, request, jsonify
-        import os
-        import openai
-        import hashlib
-        import hmac
-        import time
-        import traceback
-        from dotenv import load_dotenv
+from flask import Flask, request, jsonify
+import os
+import openai
+import hashlib
+import hmac
+import time
+import traceback
+from dotenv import load_dotenv
 
         # Load environment variables
         load_dotenv()
