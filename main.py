@@ -8,7 +8,7 @@ import traceback
 from dotenv import load_dotenv
 
         # Load environment variables
-        load_dotenv()
+load_dotenv()
 
         SLACK_BOT_TOKEN = os.getenv("SLACK_BOT_TOKEN")
         OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
